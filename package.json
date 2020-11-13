@@ -1,0 +1,22 @@
+{
+  "name": "fyp",
+  "version": "1.0.0",
+  "description": "Final Year Project From Nick",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nick-LCY/pageGenerator.git"
+  },
+  "author": "Nick Lin",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Nick-LCY/pageGenerator/issues"
+  },
+  "homepage": "https://github.com/Nick-LCY/pageGenerator#readme",
+  "dependencies": {
+    "express": "^4.17.1"
+  }
+}

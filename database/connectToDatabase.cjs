@@ -14,4 +14,6 @@ var connection = mysql.createConnection({
     database
 })
 
+connection.connect()
+
 module.exports = connection

@@ -1,31 +1,27 @@
-const parseVarsToObj = require("./processingUtils/generatePaperUtils/parseVarsToObj.cjs")
-const fs = require("fs")
 const express = require("express")
-const parseVarsToObjs = require("./processingUtils/generatePaperUtils/parseVarsToObj.cjs")
-const generateVars = require("./processingUtils/generatePaperUtils/generateVars.cjs")
 const connection = require("./database/connectToDatabase.cjs")
+const PaperProcessor = require("./processingUtils/generatePaperUtils/PaperProcessor.cjs")
+
+const { v4: uuidv4 } = require("uuid")
 
 const app = express()
 const port = 8080
 
-
-connection.connect();
 app.get('/', (req, res) => {
-    res.send("Hello World!")
+    res.send(uuidv4())
 })
 
 app.get('/process', async (req, res) => {
-    var name = "Hello World"
-    // var file = JSON.parse(await fs.readFileSync("multiple.json"))
+    // read URL query
+    var query = req.query
 
-    var file, varSpecificationList
-    connection.query(`select content from specifications where name = '${name}'`, (err, rows, fields) => {
-        if (err) throw err
-        file = JSON.parse(rows[0].content)
-        varSpecificationList = parseVarsToObjs(file.vars)
-        res.send(generateVars(varSpecificationList))
-    })
-    console.log("finished!")
+    connection.query(`select content from specifications where name = '${query.name}'`,
+        (err, rows) => {
+            if (err) throw err
+            let content = JSON.parse(rows[0].content)
+            let paperProcessor = new PaperProcessor(content)
+            res.send(paperProcessor.generatePaper(0))
+        })
 })
 
 app.listen(port, () => {

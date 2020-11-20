@@ -37,14 +37,16 @@ class PaperProcessor {
                 // Processing
                 let variableSpecificationList = this.parseVarsToObjs(question.vars)
                 let variableList = this.generateVars(variableSpecificationList)
-                console.log(variableList)
+                let possibleAns = question.possibleAns
+                let templates = question.templates
                 switch (questionSettings.basic.type) {
                     case "fill-in-blank":
-                        question.templates = this.handleBlanks(question.templates);
-                        question.templates = this.handleTemplates(question.templates, variableList);
+                        possibleAns = this.processFillInBlankAnswers(possibleAns, variableList)
+                        templates = this.handleBlanks(templates, possibleAns);
+                        templates = this.handleTemplates(templates, variableList);
                         break;
                     case "multiple-choice":
-                        question.templates = this.handleTemplates(question.templates, variableList);
+                        templates = this.handleTemplates(templates, variableList);
                         break;
                     default: break;
                 }
@@ -53,9 +55,10 @@ class PaperProcessor {
                 let questionID = uuidv4();
                 paperRecorder.sections[sectionID].questions[questionID] = {
                     orders: 1,
-                    props: questionSettings,
-                    templates: question.templates,
-                    vars: variableList
+                    props: {},
+                    templates: templates,
+                    vars: variableList,
+                    possibleAns: possibleAns
                 }
             }
         }
@@ -128,7 +131,7 @@ class PaperProcessor {
         return varSpecifications;
     }
 
-    handleBlanks(templateList) {
+    handleBlanks(templateList, possibleAns) {
         if (typeof templateList == "string") {
             templateList = [templateList]
         }
@@ -138,12 +141,12 @@ class PaperProcessor {
             let blanks = {};
             // Firstly find all the blanks needed to be replaced, and their target amount
             template.match(/_{4}\d+\|*\d+_{4}|_{4}\d+_{4}/g).map((blank) => {
-                let blankIndex = parseInt(blank.replace(/_|\||(?<=\|)\d+/g, ""));
-                if (blanks[blankIndex]) {
-                    blanks[blankIndex].list.push(blank)
+                let blankID = parseInt(blank.replace(/_|\||(?<=\|)\d+/g, ""));
+                if (blanks[blankID]) {
+                    blanks[blankID].list.push(blank)
                 } else {
                     let neededSelected = parseInt(blank.replace(/_|\||(?<=_)\d+/g, ""))
-                    blanks[blankIndex] = {
+                    blanks[blankID] = {
                         list: [blank],
                         neededSelected: isNaN(neededSelected) ? 1 : neededSelected
                     }
@@ -152,13 +155,13 @@ class PaperProcessor {
 
             // select random blanks to replace
             let randomlySelected = {}
-            for (let blankIndex in blanks) {
-                let blank = blanks[blankIndex];
+            for (let blankID in blanks) {
+                let blank = blanks[blankID];
                 if (blank.list.length <= blank.neededSelected) {
                     // -1 means no need to select, all blanks will be used
-                    randomlySelected[blankIndex] = -1
+                    randomlySelected[blankID] = -1
                 } else {
-                    randomlySelected[blankIndex] =
+                    randomlySelected[blankID] =
                         randomlySelectItems(blank.neededSelected,
                             0,
                             blank.list.length - 1)
@@ -166,21 +169,19 @@ class PaperProcessor {
             }
 
             // replace the blanks
-            for (let blankIndex in blanks) {
-                /** let possibleAns = this.specification.possibleAns */
-                for (let listIndex in blanks[blankIndex].list) {
-                    if (randomlySelected[blankIndex] == -1 || randomlySelected[blankIndex].includes(parseInt(listIndex))) {
+            for (let blankID in blanks) {
+                for (let listIndex in blanks[blankID].list) {
+                    if (randomlySelected[blankID] == -1 || randomlySelected[blankID].includes(parseInt(listIndex))) {
                         blanksCount++
-                        template = template.replace(blanks[blankIndex].list[listIndex], `___${blanksCount}___`, 1)
-                        blanksMapping.push({
-                            blanksCount: blanksCount,
-                            blank: blankIndex
-                        })
+                        template = template.replace(blanks[blankID].list[listIndex], `_____${blankID}_____`, 1)
+                        // blanksMapping.push({
+                        //     blanksCount: blanksCount,
+                        //     blank: blankIndex
+                        // })
                     } else {
-                        /** possibleAns[blankIndex] = disorderArray(possibleAns[blankIndex])
-                        template = template.replace(blanks[blankIndex].list[listIndex], possibleAns[blankIndex][0])
-                        possibleAns[blankIndex] = possibleAns[blankIndex].slice(1) **/
-                        template = template.replace(blanks[blankIndex].list[listIndex], "(((())))")
+                        possibleAns[blankID] = disorderArray(possibleAns[blankID])
+                        template = template.replace(blanks[blankID].list[listIndex], possibleAns[blankID][0])
+                        possibleAns[blankID] = possibleAns[blankID].slice(1)
                     }
                 }
             }
@@ -215,6 +216,28 @@ class PaperProcessor {
             .replace(/\s*([\+\-\*\/\%])\s*/g, "$1")
         expression = expression.replace(/((?<!\")\b[a-z]+(?!\"))/g, "variableList.$1")
         return eval(expression);
+    }
+
+    processFillInBlankAnswers(possibleAnsList, variableList) {
+        // process possible answers first
+        let processedPossibleAnsList = {}
+        for (let blankIndex in possibleAnsList) {
+            let blankPossibleAns = possibleAnsList[blankIndex]
+            let processedAnsList = []
+            for (let ansIndex in blankPossibleAns) {
+                let ans = blankPossibleAns[ansIndex]
+                if (typeof ans != "string") {
+                    if (this.processExpression(ans.correct, variableList)) processedAnsList.push(ans.content)
+                } else {
+                    processedAnsList.push(ans)
+                }
+            }
+            processedPossibleAnsList[blankIndex] = processedAnsList
+        }
+        return processedPossibleAnsList
+        // if (this.specification.ansPool.hasAnsPool) {
+        //     // 这里处理ans pool
+        // }
     }
 }
 
